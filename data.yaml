@@ -1,0 +1,13 @@
+train: ./train/images
+val: ./valid/images
+test: ./test/images
+
+nc: 5
+names: ['can', 'plastic_bottle', 'cardboard', 'plastic_bag', 'paper']
+
+roboflow:
+  workspace: ideaproject
+  project: recyclable-detection-byazd
+  version: 1
+  license: CC BY 4.0
+  url: https://app.roboflow.com/ideaproject/recyclable-detection-byazd/1

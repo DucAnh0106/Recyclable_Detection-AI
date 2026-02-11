@@ -1,0 +1,20 @@
+# 1. Ignore the Virtual Environment (HUGE folder, never push this)
+venv/
+.env
+
+# 2. Ignore Mac System Files
+.DS_Store
+
+# 3. Ignore Python cache files
+__pycache__/
+*.pyc
+
+# 4. Ignore the huge YOLO downloads (optional, but cleaner)
+yolov8n.pt
+yolov8s.pt
+yolov8m.pt
+
+# 5. Ignore the "runs" folder? (Up to you)
+# The 'runs' folder contains all your logs and charts.
+# It can get messy. I usually ignore it, but keep the BEST model.
+runs/
