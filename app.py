@@ -1,94 +1,61 @@
 import streamlit as st
-from ultralytics import YOLO
+from google import genai
 from PIL import Image
-import numpy as np
 
-# 1. Page Config
+# 1. Configuration
 st.set_page_config(page_title="Wander Bin AI", page_icon="♻️")
+st.title("♻️ Wander Bin - Smart Scanner")
+st.caption("Powered by Gemini 2.0 Flash")
 
-# --- CSS HACK FOR TARGET BOX ---
-# This draws a red box in the center of the camera widget!
-st.markdown(
-    """
-    <style>
-    /* This targets the camera container */
-    div[data-testid="stCameraInput"] video {
-        clip-path: inset(0% 0% 0% 0%); /* specific to some browsers */
-    }
-    /* The Target Box Overlay */
-    div[data-testid="stCameraInput"]::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 300px; /* Width of the target box */
-        height: 300px; /* Height of the target box */
-        transform: translate(-50%, -50%);
-        border: 4px solid #00FF00; /* Green Border */
-        border-radius: 10px;
-        z-index: 99;
-        pointer-events: none; /* Let clicks pass through */
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* Dim the outside area */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# 2. API Key Input
+# Paste your NEW key (starting with AIza) here
+api_key = st.text_input("Enter Google API Key:", type="password")
 
-st.title("♻️ Wander Bin - Scanner")
-st.caption("Place the object inside the GREEN BOX and press 'Take Photo'.")
-
-# 2. Load Model
-@st.cache_resource
-def load_model():
-    return YOLO('models/wander_bin_v1.pt')
-
-try:
-    model = load_model()
-except Exception as e:
-    st.error(f"Error loading model: {e}")
+if not api_key:
+    st.warning("⚠️ Please enter your API Key to start.")
     st.stop()
 
-# 3. Camera Input
-img_file_buffer = st.camera_input("Scanner", label_visibility="hidden")
+# 3. Configure the Client
+try:
+    client = genai.Client(api_key=api_key)
+except Exception as e:
+    st.error(f"Error configuring API: {e}")
+    st.stop()
+
+# 4. Camera Input
+img_file_buffer = st.camera_input("Take a photo of the trash")
 
 if img_file_buffer is not None:
+    # Display the image
     image = Image.open(img_file_buffer)
-    img_array = np.array(image)
-    
-    # --- SMART CROP LOGIC ---
-    # We crop exactly the center 300x300 pixels to match the CSS box
-    height, width, _ = img_array.shape
-    crop_size = 300
-    
-    start_y = max(0, (height - crop_size) // 2)
-    start_x = max(0, (width - crop_size) // 2)
-    end_y = min(height, start_y + crop_size)
-    end_x = min(width, start_x + crop_size)
-    
-    cropped_image = image.crop((start_x, start_y, end_x, end_y))
-    
-    # Show the user what the AI saw
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        st.image(cropped_image, caption="AI Input", width=150)
+    st.image(image, caption="Captured Image", use_column_width=True)
 
-    # --- INFERENCE ---
-    results = model.predict(cropped_image, conf=0.30) # Lower confidence allowed
+    # 5. The Prompt
+    # We ask Gemini to act as a recycling expert for Singapore
+    prompt = """
+    You are an expert recycling assistant for Singapore.
+    Look at this image and identify the main object.
+    
+    Is it recyclable in Singapore's blue bins?
+    
+    Format your answer exactly like this:
+    Object: [Name]
+    Recyclable: [Yes/No]
+    Material: [Plastic/Paper/Metal/Glass/General Waste]
+    Action: [One short instruction, e.g. "Rinse and recycle" or "Throw in general waste"]
+    """
 
-    with col2:
-        if len(results[0].boxes) > 0:
-            top_box = results[0].boxes[0]
-            class_name = results[0].names[int(top_box.cls[0])]
-            conf = float(top_box.conf[0])
+    with st.spinner("Analyzing with Gemini 2.0 Flash..."):
+        try:
+            # Using the model from your list: models/gemini-2.0-flash
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=[prompt, image]
+            )
             
-            # FORMATTED OUTPUT
-            if class_name in ['can', 'plastic_bottle', 'glass']:
-                st.success(f"### ✅ RECYCLABLE: {class_name.upper()}")
-            else:
-                st.info(f"### 📄 RECYCLABLE: {class_name.upper()}")
-                
-            st.metric("Confidence", f"{conf:.1%}")
-        else:
-            st.warning("❓ No clear object detected.")
-            st.write("Try rotating the object or turning on a light.")
+            st.success("Analysis Complete!")
+            st.markdown(f"### {response.text}")
+            
+        except Exception as e:
+            st.error(f"Error: {e}")
+            st.info("Double check that your API Key is correct and has access to this model.")
